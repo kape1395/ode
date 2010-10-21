@@ -60,6 +60,7 @@ import java.net.URI;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Assign activity run-time template.
@@ -218,10 +219,40 @@ class ASSIGN extends ACTIVITY {
                         + tempVal.getClass().getName() + " has value " + DOMUtils.domToString(tempVal));
             retVal = tempVal;
         } else if (from instanceof OAssign.Expression) {
+            __log.debug("evalRValue: OAssign.Expression: from=" + from);
             List<Node> l;
             OExpression expr = ((OAssign.Expression) from).expression;
             try {
                 l = getBpelRuntimeContext().getExpLangRuntime().evaluate(expr, getEvaluationContext());
+
+                if (l.size() == 0 || l.get(0) == null || !(l.get(0) instanceof Element)) {
+                    __log.debug("evalRValue: OAssign.Expression: eval reult not Element or node=null");
+                } else {
+                    Element element = (Element)l.get(0);
+                    if (__log.isDebugEnabled()) {
+                        __log.debug("evalRValue: OAssign.Expression: eval result is Element" +
+                                " node.name=" + element.getNodeName() +
+                                " namespaces=" + DOMUtils.getMyNamespaces(element) +
+                                " nsContext=" + DOMUtils.getMyNSContext(element).toMap());
+                    }
+                    __log.debug("evalRValue: OAssign.Expression: adding namespaces - begin");
+                    for (Map.Entry<String, String> entry : DOMUtils.getMyNSContext(element).toMap().entrySet()) {
+                        String key = entry.getKey();
+                        String value = entry.getValue();
+                        if (entry.getKey() == null || entry.getKey().length() == 0) {
+                            element.setAttributeNS(DOMUtils.NS_URI_XMLNS, "xmlns", value);
+                            if (__log.isDebugEnabled())
+                                __log.debug("evalRValue: OAssign.Expression: added namespace: xmlns=\"" + value + "\"");
+                        } else {
+                            element.setAttributeNS(DOMUtils.NS_URI_XMLNS, "xmlns:" + key, value);
+                            if (__log.isDebugEnabled())
+                                __log.debug("evalRValue: OAssign.Expression: added namespace: xmlns:" + key + "=\"" + value + "\"");
+                        }
+                    }
+                    __log.debug("evalRValue: OAssign.Expression: adding namespaces - end");
+                }
+                
+                
             } catch (EvaluationException e) {
                 String msg = __msgs.msgEvalException(from.toString(), e.getMessage());
                 if (__log.isDebugEnabled()) __log.debug(from + ": " + msg);
@@ -338,6 +369,8 @@ class ASSIGN extends ACTIVITY {
 
         }
 
+        if (__log.isDebugEnabled())
+            __log.debug("evalRValue: rvalue after eval content=" + DOMUtils.domToString(retVal));
         return retVal;
     }
 
@@ -499,22 +532,17 @@ class ASSIGN extends ACTIVITY {
 
         Element replacement = doc.createElementNS(ptr.getNamespaceURI(), ptr.getTagName());
         NodeList nl = src.getChildNodes();
-        for (int i = 0; i < nl.getLength(); ++i)
+        for (int i = 0; i < nl.getLength(); ++i) {
+            if (__log.isDebugEnabled())
+                __log.debug("replaceElement: adding child for replacement: " + nl.item(i));
             replacement.appendChild(doc.importNode(nl.item(i), true));
+        }
         NamedNodeMap attrs = src.getAttributes();
         for (int i = 0; i < attrs.getLength(); ++i) {
             Attr attr = (Attr)attrs.item(i);
-            if (!attr.getName().startsWith("xmlns")) {
-                replacement.setAttributeNodeNS((Attr)doc.importNode(attrs.item(i), true));
-                // Case of qualified attribute values, we're forced to add corresponding namespace declaration manually
-                int colonIdx = attr.getValue().indexOf(":");
-                if (colonIdx > 0) {
-                    String prefix = attr.getValue().substring(0, colonIdx);
-                    String attrValNs = src.lookupPrefix(prefix);
-                    if (attrValNs != null)
-                       replacement.setAttributeNS(DOMUtils.NS_URI_XMLNS, "xmlns:"+ prefix, attrValNs);
-                }
-            }
+            if (__log.isDebugEnabled())
+                __log.debug("replaceElement: setting attributefor replacement: " + attr);
+            replacement.setAttributeNodeNS((Attr)doc.importNode(attr, true));
         }
         parent.replaceChild(replacement, ptr);
         DOMUtils.copyNSContext(ptr, replacement);
