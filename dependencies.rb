@@ -43,7 +43,7 @@ AXIS2_MODULES        = struct(
                         "org.apache.santuario:xmlsec:jar:1.4.1",
                         "org.apache.axis2:mex:jar:impl:1.41", #1.41 is not a typo!
                         "opensaml:opensaml:jar:1.1",
-                        "bouncycastle:bcprov-jdk15:jar:133",
+                        "bouncycastle:bcprov-jdk15:jar:132",
                         BACKPORT]
 )
 AXIS2_WAR           = "org.apache.axis2:axis2-webapp:war:1.5"
