@@ -27,12 +27,12 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.felix.gogo.commands.*;
 import org.apache.ode.bpel.pmapi.TInstanceInfo;
 
-@Command(scope = "ode", name = "terminate", description = "Terminate an active ode process instances")
+@Command(scope = "ode", name = "terminate", description = "Terminate active ODE process instances")
 public class OdeTerminateCommand extends OdeCommandsBase {
 
-    private static final Log __log = LogFactory.getLog(OdeListCommand.class);
+    private static final Log __log = LogFactory.getLog(OdeTerminateCommand.class);
 
-    @Argument(name = "iids", description = "Instance ID's to terminate", multiValued = true)
+    @Argument(name = "iids", description = "Instance IDs to terminate", multiValued = true)
     private static Long[] iids;
 
     @Option(name = "-a", aliases = "--all", description = "Terminate all active instances")

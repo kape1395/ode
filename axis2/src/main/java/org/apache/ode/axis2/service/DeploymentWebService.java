@@ -253,6 +253,9 @@ public class DeploymentWebService {
                 } else if (operation.equals("listProcesses")) {
                     OMElement namePart = messageContext.getEnvelope().getBody().getFirstElement().getFirstElement();
                     List<QName> processIds = _store.listProcesses(namePart.getText());
+                    if (processIds == null) {
+                        throw new OdeFault("Could not find process package: " + namePart.getText());
+                    }
                     OMElement response = factory.createOMElement("processIds", null);
                     for (QName qname : processIds) {
                         OMElement nameElmt = factory.createOMElement("id", _deployapi);
@@ -295,11 +298,15 @@ public class DeploymentWebService {
                 // Processing the package
                 while((entry = zis.getNextEntry()) != null) {
                     if(entry.isDirectory()) {
-                        __log.debug("Extracting directory: " + entry.getName());
+                        if (__log.isDebugEnabled()) {
+                            __log.debug("Extracting directory: " + entry.getName());
+                        }
                         new File(dest, entry.getName()).mkdir();
                         continue;
                     }
-                    __log.debug("Extracting file: " + entry.getName());
+                    if (__log.isDebugEnabled()) {
+                        __log.debug("Extracting file: " + entry.getName());
+                    }
                     File destFile = new File(dest, entry.getName());
                     if (!destFile.getParentFile().exists()) destFile.getParentFile().mkdirs();
                     copyInputStream(zis, new BufferedOutputStream(

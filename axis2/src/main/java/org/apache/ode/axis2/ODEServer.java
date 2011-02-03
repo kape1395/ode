@@ -373,22 +373,25 @@ public class ODEServer {
                 try {
                     __log.debug("shutdown BpelConnector");
                     _connector.shutdown();
+                    _connector = null;
                 } catch (Throwable t) {
                     __log.error("Unable to cleanup temp files.", t);
                 }
             }
-            if(httpConnectionManager!=null){
+            if (httpConnectionManager != null) {
                 __log.debug("shutting down HTTP connection manager.");
                 try {
                     httpConnectionManager.shutdown();
+                    httpConnectionManager = null;
                 } catch(Throwable t) {
                     __log.error("Unable to shut down HTTP connection manager.", t);
                 }
             }
-            if(idleConnectionTimeoutThread!=null){
+            if (idleConnectionTimeoutThread != null) {
                 __log.debug("shutting down Idle Connection Timeout Thread.");
                 try {
                     idleConnectionTimeoutThread.shutdown();
+                    idleConnectionTimeoutThread = null;
                 } catch(Throwable t) {
                     __log.error("Unable to shut down Idle Connection Timeout Thread.", t);
                 }
@@ -400,7 +403,10 @@ public class ODEServer {
                 __log.error("Unable to cleanup temp files.", t);
             }
 
-            _executorService.shutdownNow();
+            if (_executorService != null) {
+                _executorService.shutdownNow();
+                _executorService = null;
+            }
 
             __log.info(__msgs.msgOdeShutdownCompleted());
         } finally {
@@ -650,7 +656,9 @@ public class ODEServer {
     }
 
     private void handleEvent(ProcessStoreEvent pse) {
-        __log.debug("Process store event: " + pse);
+        if (__log.isDebugEnabled()) {
+            __log.debug("Process store event: " + pse);
+        }
         ProcessConf pconf = _store.getProcessConfiguration(pse.pid);
         switch (pse.type) {
             case DEPLOYED:
@@ -734,9 +742,11 @@ public class ODEServer {
         }
 
         public void commit() throws HeuristicMixedException, HeuristicRollbackException, IllegalStateException, RollbackException, SecurityException, SystemException {
-            __logTx.debug("Txm commit");
-            for (StackTraceElement traceElement : Thread.currentThread().getStackTrace()) {
-                __logTx.debug(traceElement.toString());
+            if (__log.isDebugEnabled()) {
+                __logTx.debug("Txm commit");
+                for (StackTraceElement traceElement : Thread.currentThread().getStackTrace()) {
+                    __logTx.debug(traceElement.toString());
+                }
             }
             _tm.commit();
         }
@@ -748,7 +758,9 @@ public class ODEServer {
 
         public Transaction getTransaction() throws SystemException {
             Transaction tx = _tm.getTransaction();
-            __logTx.debug("Txm get tx " + tx);
+            if (__log.isDebugEnabled()) {
+                __logTx.debug("Txm get tx " + tx);
+            }
             return tx == null ? null : new DebugTx(tx);
         }
 
@@ -768,7 +780,9 @@ public class ODEServer {
         }
 
         public void setTransactionTimeout(int i) throws SystemException {
-            __logTx.debug("Txm set tiemout " + i);
+            if (__log.isDebugEnabled()) {
+                __logTx.debug("Txm set tiemout " + i);
+            }
             _tm.setTransactionTimeout(i);
         }
 
@@ -803,7 +817,9 @@ public class ODEServer {
         }
 
         public void registerSynchronization(Synchronization synchronization) throws IllegalStateException, RollbackException, SystemException {
-            __logTx.debug("Synchronization registration on " + synchronization.getClass().getName());
+            if (__log.isDebugEnabled()) {
+                __logTx.debug("Synchronization registration on " + synchronization.getClass().getName());
+            }
             _tx.registerSynchronization(synchronization);
         }
 

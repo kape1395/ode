@@ -90,7 +90,7 @@ public class CronScheduler {
     public void cancelProcessCronJobs(QName pid, boolean undeployed) {
         assert pid != null;
 
-        if( __log.isInfoEnabled() ) __log.info("Cancelling PROCESS CRON jobs for: " + pid);
+        if( __log.isDebugEnabled() ) __log.debug("Cancelling PROCESS CRON jobs for: " + pid);
         Collection<TerminationListener> listenersToTerminate = new ArrayList<TerminationListener>();
 
         synchronized( _terminationListenersByPid ) {
@@ -122,7 +122,7 @@ public class CronScheduler {
         Collection<TerminationListener> newListeners = new ArrayList<TerminationListener>();
 
         synchronized( pid ) {
-            if( __log.isInfoEnabled() ) __log.info("Scheduling PROCESS CRON jobs for: " + pid);
+            if( __log.isDebugEnabled() ) __log.debug("Scheduling PROCESS CRON jobs for: " + pid);
 
             // start new cron jobs
             for( final CronJob job : pconf.getCronJobs() ) {
@@ -239,14 +239,18 @@ public class CronScheduler {
             _schedulerTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
-                    __log.debug("Cron scheduling timer kicked in: " + cronExpression);
+                    if (__log.isDebugEnabled()) {
+                        __log.debug("Cron scheduling timer kicked in: " + cronExpression);
+                    }
                     // run only if the current node is the coordinator,
                     // with the SimpleScheduler, the node is always the coordinator
                     if( !(_contexts.scheduler instanceof ClusterAware)
                             || ((ClusterAware)_contexts.scheduler).amICoordinator() ) {
                         // do not hold the timer thread too long, submit the work to an executorService
                         _scheduledTaskExec.submit(job);
-                        __log.debug("CRON job scheduled " + runnable);
+                        if (__log.isDebugEnabled()) {
+                            __log.debug("CRON job scheduled " + runnable);
+                        }
                     }
                 }
             }, nextScheduleTime);
@@ -302,7 +306,9 @@ public class CronScheduler {
                         ((ContextsAware) runnable).setContexts(_contexts);
                     }
                     if( !_shuttingDown && !terminated ) {
-                        __log.debug("Running CRON job: " + runnable + " for " + nextScheduleTime.getTime());
+                        if (__log.isDebugEnabled()) {
+                            __log.debug("Running CRON job: " + runnable + " for " + nextScheduleTime.getTime());
+                        }
                         runnable.run();
                     }
                 } else {

@@ -18,9 +18,21 @@
  */
 package org.apache.ode.bpel.elang.xpath10.runtime;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.xml.namespace.QName;
+import javax.xml.transform.dom.DOMSource;
+
+import net.sf.saxon.dom.NodeWrapper;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.ode.bpel.common.FaultException;
+import org.apache.ode.bpel.elang.XslRuntimeUriResolver;
 import org.apache.ode.bpel.elang.xpath10.o.OXPath10Expression;
 import org.apache.ode.bpel.elang.xpath10.o.OXPath10ExpressionBPEL20;
 import org.apache.ode.bpel.explang.EvaluationContext;
@@ -33,7 +45,6 @@ import org.apache.ode.bpel.o.OVarType;
 import org.apache.ode.bpel.o.OXsdTypeVarType;
 import org.apache.ode.bpel.o.OXslSheet;
 import org.apache.ode.utils.DOMUtils;
-import org.apache.ode.utils.xsd.XSTypes;
 import org.apache.ode.utils.xsl.XslTransformHandler;
 import org.jaxen.Context;
 import org.jaxen.Function;
@@ -42,21 +53,9 @@ import org.jaxen.FunctionContext;
 import org.jaxen.UnresolvableException;
 import org.jaxen.VariableContext;
 import org.jaxen.XPathFunctionContext;
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-import org.w3c.dom.Document;
-import org.xml.sax.SAXException;
-
-import javax.xml.namespace.QName;
-import javax.xml.transform.dom.DOMSource;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import net.sf.saxon.dom.NodeWrapper;
 
 
 /**
@@ -68,6 +67,8 @@ class JaxenContexts implements FunctionContext, VariableContext {
 
     /** Static, thread-safe singleton implementing default XPath functions */
     private static final FunctionContext __defaultXPathFunctions = XPathFunctionContext.getInstance();
+    
+    private static final QName BOOLEAN = new QName("http://www.w3.org/2001/XMLSchema", "boolean");
 
     private OXPath10Expression _oxpath;
     private EvaluationContext _xpathEvalCtx;
@@ -186,7 +187,13 @@ class JaxenContexts implements FunctionContext, VariableContext {
                 }
 
                 if (_xpathEvalCtx.narrowTypes() && type instanceof OXsdTypeVarType && ((OXsdTypeVarType)type).simple) {
-                    return variableNode.getTextContent();
+                	String value = variableNode.getTextContent();
+                	OXsdTypeVarType theType = (OXsdTypeVarType)type;
+                	
+                	if (BOOLEAN.equals(theType.xsdType)) {
+                		return new Boolean(value) ;
+                	}
+                    return value;
                 } else {
                     return variableNode;
                 }

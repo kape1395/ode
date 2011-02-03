@@ -93,8 +93,9 @@ public class DeploymentBrowser {
                                         }
 
                                         out.write("<p><a href=\"" + url + "\">" + serviceName + "</a></p>");
-
-                                        out.write("<ul><li>Endpoint: " + (root + "/processes/" + serviceName) + "</li>");
+                                        String axis2wsdl = root + "/processes/" + serviceName + "?wsdl";
+                                        out.write("<ul><li>Axis2 WSDL: <a href=\"" + axis2wsdl + "\">" + axis2wsdl + "</a></li>");
+                                        out.write("<li>Endpoint: " + (root + "/processes/" + serviceName) + "</li>");
                                         Iterator iter = service.getOperations();
                                         ArrayList<String> ops = new ArrayList<String>();
                                         while (iter.hasNext()) ops.add(((AxisOperation)iter.next()).getName().getLocalPart());

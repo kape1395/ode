@@ -46,6 +46,7 @@ import org.apache.commons.httpclient.URIException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.ode.bpel.common.FaultException;
+import org.apache.ode.bpel.elang.XslRuntimeUriResolver;
 import org.apache.ode.bpel.elang.xpath10.o.OXPath10Expression;
 import org.apache.ode.bpel.elang.xpath10.o.OXPath10ExpressionBPEL20;
 import org.apache.ode.bpel.elang.xpath20.compiler.Constants;
@@ -82,7 +83,9 @@ public class JaxpFunctionResolver implements XPathFunctionResolver {
     }
 
     public XPathFunction resolveFunction(QName functionName, int arity) {
-        __log.debug("Resolving function " + functionName);
+        if (__log.isDebugEnabled()) {
+            __log.debug("Resolving function " + functionName);
+        }
         if (functionName.getNamespaceURI() == null) {
             throw new NullPointerException("Undeclared namespace for " + functionName);
         } else if (functionName.getNamespaceURI().equals(Namespaces.WS_BPEL_20_NS) ||

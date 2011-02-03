@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-gem "buildr", "~>1.4"
+gem "buildr", "~>1.4.3"
 require "buildr"
 require "buildr/xmlbeans.rb"
 require "buildr/openjpa"
@@ -34,7 +34,16 @@ require File.join(File.dirname(__FILE__), 'repositories.rb')
 require File.join(File.dirname(__FILE__), 'dependencies.rb')
 
 # Keep this structure to allow the build system to update version numbers.
-VERSION_NUMBER = "1.3.5-SH20101021-OMN.003"
+VERSION_NUMBER = "1.4-SNAPSHOT"
+
+# Apache Nexus Repositories
+if VERSION_NUMBER =~ /SNAPSHOT/
+    # Apache Development Snapshot Repository
+    repositories.release_to[:url] = 'https://repository.apache.org/content/repositories/snapshots'
+else
+    # Apache Release Distribution Repository
+    repositories.release_to[:url] = 'https://repository.apache.org/service/local/staging/deploy/maven2'
+end
 
 BUNDLE_VERSIONS = {
   "ode.version" => VERSION_NUMBER,
@@ -213,7 +222,7 @@ define "ode" do
 
 
     test.with projects("scheduler-simple", "dao-jpa", "dao-hibernate", "bpel-epr"),
-        BACKPORT, COMMONS.pool, COMMONS.lang, DERBY, JAVAX.connector, JAVAX.transaction,
+        BACKPORT, COMMONS.pool, COMMONS.lang, COMMONS.io, DERBY, JAVAX.connector, JAVAX.transaction,
         GERONIMO.transaction, GERONIMO.kernel, GERONIMO.connector, TRANQL, HSQLDB, JAVAX.ejb,
         OPENJPA, XERCES, XALAN, LOG4J, SLF4J,
         DOM4J, HIBERNATE, SPRING_TEST,
@@ -438,63 +447,137 @@ define "ode" do
     end
   end
 
-#  desc "ODE Commmands for Karaf"
-#  define "jbi-karaf-commands" do
-#    compile.with projects("bpel-schemas", "jbi"), JBI, KARAF, XMLBEANS, COMMONS.logging
-#    libs = artifacts(projects("bpel-schemas", "jbi"), JBI, KARAF, XMLBEANS, COMMONS.logging)
-#    package(:bundle).tap do |bnd|
-#      bnd.bnd_file = _("org.apache.ode.commands.bnd")
-#      bnd.sourcepath = _("src/main/java")
-#      bnd.classpath = _("target/classes") + File::PATH_SEPARATOR + libs.join(File::PATH_SEPARATOR)
-#      bnd.properties.update(BUNDLE_VERSIONS)
-#    end
-#  end
-#
-#  desc "ODE JBI Packaging for Karaf"
-#  define "jbi-karaf" do
-#    ode_libs = artifacts(projects("bpel-api", "bpel-api-jca", "bpel-compiler", "bpel-connector", "bpel-dao",
-#                                  "bpel-epr", "jca-ra", "jca-server", "bpel-obj", "bpel-ql", "bpel-runtime",
-#                                  "scheduler-simple", "bpel-schemas", "bpel-store", "dao-hibernate", "dao-jpa",
-#                                  "jacob", "jacob-ap", "utils", "agents"))
-#    libs = artifacts(ANT, AXIOM, BACKPORT, COMMONS.codec, COMMONS.collections, COMMONS.dbcp, COMMONS.lang, COMMONS.pool,
-#                     COMMONS.primitives, DERBY, GERONIMO.connector, GERONIMO.transaction, JAXEN, JAVAX.connector,
-#                     JAVAX.ejb, JAVAX.jms, JAVAX.persistence, JAVAX.stream, JAVAX.transaction, LOG4J, OPENJPA,
-#                     SAXON, TRANQL, XALAN, XERCES, XMLBEANS, WSDL4J)
-#    package(:bundle).tap do |bnd|
-#      bnd.bnd_file = _("bnd.bnd")
-#      bnd.classpath = (ode_libs + artifacts(project("jbi").package(:jar)) + libs).join(File::PATH_SEPARATOR)
-#      bnd.properties.update(BUNDLE_VERSIONS)
-#
-#      # inline log4j helper classes
-#      bnd.properties["log4j.jar"] = artifact(LOG4J).to_s
-#
-#      # inline dao zip files
-#      zips = artifacts(project("dao-hibernate-db").package(:zip), project("dao-jpa-ojpa-derby").package(:zip))
-#      inlines = zips.map{|item| "@" + item.to_s}
-#      bnd.properties["inlines"] = inlines.join(', ')
-#
-#      # embed jars
-#      bnd_libs = ode_libs + artifacts(AXIOM, BACKPORT, GERONIMO.connector, JAXEN,
-#                                      JAVAX.connector, JAVAX.persistence, JAVAX.ejb,
-#                                      OPENJPA, SAXON, TRANQL,
-#                                      XALAN, XERCES, XMLBEANS, WSDL4J)
-#      includes = bnd_libs.map{|item| File.basename(item.to_s)}
-#      bnd.properties["includes"] = includes.join(', ')
-#    end
-#
-#    # Generate features.xml
-#    def package_as_feature(file_name)
-#      file file_name  => [_("src/main/filtered-resources/features.xml")] do
-#        filter(_("src/main/filtered-resources")).include("features.xml").into(_("target")).using(BUNDLE_VERSIONS).run
-#        mv _("target/features.xml"), file_name
-#      end
-#    end
-#    def package_as_feature_spec(spec)
-#      spec.merge({ :type=>:xml, :classifier=>'features' })
-#    end
-#    package(:feature)
-#
-#  end
+  desc "ODE Commmands for Karaf"
+  define "jbi-karaf-commands" do
+    compile.with projects("bpel-schemas", "jbi"), JBI, KARAF, XMLBEANS, COMMONS.logging
+    libs = artifacts(projects("bpel-schemas", "jbi"), JBI, KARAF, XMLBEANS, COMMONS.logging)
+    package(:bundle).tap do |bnd|
+      bnd.classpath = [_("target/classes"), libs].flatten
+      BUNDLE_VERSIONS.each {|key, value| bnd[key] = value }
+      bnd['Bundle-Name'] = "Apache ODE :: Commands"
+      bnd['Bundle-Version'] = VERSION_NUMBER
+      bnd['Require-Bundle'] = "org.apache.ode.ode-jbi-bundle;bundle-version=#{osgi_version_for(VERSION_NUMBER)}"
+      bnd['Import-Package'] = 'org.osgi.service.command,org.apache.karaf.shell.console;version="[2.1,2.2)",*'
+      bnd['Private-Package'] = "org.apache.ode.karaf.commands;version=#{VERSION_NUMBER}"
+      bnd['Include-Resource'] = _('src/main/resources')
+    end
+  end
+
+  desc "ODE Examples for Karaf"
+  define "jbi-karaf-examples",
+    :group => "org.apache.ode.examples",
+    :base_dir => "distro/src/examples-jbi/maven2" do
+    
+    define "helloworld2-osgi" do
+      package(:bundle, :id => "helloworld-bundle").tap do |bnd|
+        bnd.classpath = [KARAF, project("ode:jbi-bundle")]
+        bnd['Bundle-Name'] = "Apache ODE :: Hello World Example"
+        bnd['Bundle-SymbolicName'] = "org.apache.ode.examples-helloworld2-bundle"
+        bnd['Bundle-Version'] = VERSION_NUMBER
+        bnd['Require-Bundle'] = "org.apache.ode.ode-jbi-bundle;bundle-version=#{osgi_version_for(VERSION_NUMBER)}"
+        bnd['Import-Package'] = "org.apache.servicemix.cxfbc,org.apache.servicemix.common.osgi"
+        bnd['Export-Package'] = ""
+        bnd['-exportcontents'] = ""
+        bnd['Include-Resource'] = _('src/main/resources')
+      end
+      # we package sources and javadocs separately to give them a custom id
+      package(:sources, :id => "helloworld-bundle")
+      
+      # This project does not contain java classes, hence there are no javadocs. 
+      # But since Nexus will complain about a missing javadoc artifact, we make sure that an empty one is created.
+      package(:javadoc, :id => "helloworld-bundle").enhance { mkdir_p _("target/doc") }
+    end
+    
+    define "ping-pong-osgi" do
+      compile
+      package(:bundle, :id => "ping-pong-bundle").tap do |bnd|
+        bnd.classpath = [_("target/classes"), KARAF, project("ode:jbi-bundle")].flatten
+        bnd['Bundle-Name'] = "Apache ODE :: Ping-Pong Example"
+        bnd['Bundle-SymbolicName'] = "org.apache.ode.examples-ping-pong-bundle"
+        bnd['Bundle-Version'] = VERSION_NUMBER
+        bnd['Require-Bundle'] = "org.apache.ode.ode-jbi-bundle;bundle-version=#{osgi_version_for(VERSION_NUMBER)}"
+        bnd['Import-Package'] = "org.apache.servicemix.cxfbc,org.apache.servicemix.common.osgi"
+        bnd['Export-Package'] = "org.apache.ode.ping"
+        bnd['Include-Resource'] = _('src/main/resources')
+      end
+      
+      # we package sources and javadocs separately to give them a custom id
+      package(:sources, :id => "ping-pong-bundle")
+      package(:javadoc, :id => "ping-pong-bundle")
+    end
+  end
+
+  define "jbi-karaf-pmapi-httpbinding" do
+    package(:bundle).tap do |bnd|
+      bnd.classpath = [KARAF, project("ode:jbi-bundle")]
+      bnd['Bundle-Name'] = "Apache ODE :: PMAPI HTTP Binding"
+      bnd['Bundle-SymbolicName'] = "org.apache.ode-pmapi-httpbinding"
+      bnd['Bundle-Version'] = VERSION_NUMBER
+      bnd['Require-Bundle'] = "org.apache.ode.ode-jbi-bundle;bundle-version=#{osgi_version_for(VERSION_NUMBER)}"
+      bnd['Import-Package'] = "org.apache.servicemix.cxfbc,org.apache.servicemix.common.osgi"
+      bnd['-exportcontents'] = ""
+      bnd['Include-Resource'] = _('src/main/resources')
+    end
+  end
+
+  desc "ODE JBI Packaging for Karaf"
+  define "jbi-karaf" do
+    resources.filter.using(BUNDLE_VERSIONS)
+    package :jar
+    # Generate features.xml
+    def package_as_feature(file_name)
+      file file_name => [_("src/main/resources/features.xml")] do
+        filter(_("src/main/resources")).include("features.xml").into(_("target")).using(BUNDLE_VERSIONS).run
+        mv _("target/features.xml"), file_name
+      end
+    end
+    def package_as_feature_spec(spec)
+      spec.merge({ :type=>:xml, :classifier=>'features' })
+    end
+    package(:feature)
+  end
+
+  desc "ODE JBI Bundle"
+  define "jbi-bundle" do
+    ode_libs = artifacts(projects("bpel-api", "bpel-api-jca", "bpel-compiler", "bpel-connector", "bpel-dao",
+                                  "bpel-epr", "jca-ra", "jca-server", "bpel-obj", "bpel-ql", "bpel-runtime",
+                                  "scheduler-simple", "bpel-schemas", "bpel-store", "dao-hibernate", "dao-jpa",
+                                  "jacob", "utils", "agents"))
+    libs = artifacts(ANT, AXIOM, BACKPORT, COMMONS.codec, COMMONS.collections, COMMONS.dbcp, COMMONS.lang, COMMONS.pool,
+                     COMMONS.primitives, COMMONS.io, DERBY, GERONIMO.connector, GERONIMO.transaction, JAXEN, JAVAX.connector, 
+                     JAVAX.ejb, JAVAX.jms, JAVAX.persistence, JAVAX.stream, JAVAX.transaction, LOG4J, OPENJPA, 
+                     SAXON, TRANQL, XALAN, XERCES, XMLBEANS, WSDL4J, KARAF)
+    compile.with projects("bpel-schemas", "jbi", "bpel-api"), JBI, libs, KARAF, SPRING, SPRING_OSGI
+
+    package(:bundle).tap do |bnd|
+      # inline dao zip files
+      zips = artifacts(project("dao-hibernate-db").package(:zip), project("dao-jpa-ojpa-derby").package(:zip))
+      inlines = zips.map{|item| "@" + item.to_s}
+
+      # embed jars
+      bnd_libs = ode_libs + artifacts(AXIOM, BACKPORT, GERONIMO.connector, JAXEN, 
+                                      JAVAX.connector, JAVAX.persistence, JAVAX.ejb, 
+                                      OPENJPA, SAXON, TRANQL, 
+                                      XALAN, XERCES, XMLBEANS, WSDL4J)
+      includes = bnd_libs.map{|item| File.basename(item.to_s)} 
+      bnd["includes"] = includes.join(', ') 
+
+      # embedd *.xsd, *.xml, xmlbeans* from ode libs
+      embedres = ode_libs.map {|pkg| ['**.xsd', '**.xml', 'schemaorg_apache_xmlbeans/**'].map {|x| '@' + pkg.to_s + '!/' + x}}.join(', ')
+      bnd['Export-Package'] = "org.apache.ode*;version=#{VERSION_NUMBER};-split-package:=merge-first"
+      bnd['Import-Package'] = '!com.sun.mirror*, !org.apache.axis2.client*, javax.jbi*;version="1.0", javax.transaction*;version="1.1", org.tranql.connector.jdbc, org.apache.commons.httpclient*;version="3.0", org.apache.commons.logging*;version="1.1", org.apache.commons*, org.apache.geronimo.transaction.manager;version="2.0", org.osgi.service.command;version="[0.2,1)", org.springframework.beans.factory.xml;version="2.5", org.w3c.dom, org.xml.sax, org.xml.sax.ext, org.xml.sax.helpers, org.jaxen.saxpath,net.sf.saxon.xpath,*;resolution:=optional'
+      bnd['Embed-Dependency'] = '*;inline=**.xsd|schemaorg_apache_xmlbeans/**|**.xml'
+      bnd['DynamicImport-Package'] = '*'
+      bnd['Include-Resource'] = [embedres, _('src/main/resources'), inlines].flatten.join(', ')
+      bnd['Bundle-Vendor'] = 'Apache Software Foundation'
+      bnd['Bundle-License'] = 'http://www.apache.org/licenses/LICENSE-2.0'
+      bnd['Bundle-DocURL'] = 'http://ode.apache.org'
+      bnd['Bundle-Name'] = 'Apache ODE :: BPEL Service Engine'
+      bnd.classpath = [project.compile.target, bnd_libs, artifacts(project("jbi").package(:jar)), libs].flatten
+
+      BUNDLE_VERSIONS.each {|key, value| bnd[key] = value }
+    end
+  end
 
   desc "ODE JCA Resource Archive"
   define "jca-ra" do
@@ -529,8 +612,28 @@ define "ode" do
      package(:jar).with :manifest=>_("src/main/resources/META-INF/MANIFEST.MF")
   end
 
-  package_with_sources
-  package_with_javadoc unless ENV["JAVADOC"] =~ /^(no|off|false|skip)$/i
+  # sources and javadocs of jbi-karaf-examples are packaged separately.
+  package_with_sources :except => ["jbi-karaf-examples:helloworld2-osgi", "jbi-karaf-examples:ping-pong-osgi"]
+  package_with_javadoc :except => ["jbi-karaf-examples:helloworld2-osgi", "jbi-karaf-examples:ping-pong-osgi"] unless ENV["JAVADOC"] =~ /^(no|off|false|skip)$/i
+
+  gpg_sign_before_upload
+  
+  task :pmd do
+    pmd_classpath = transitive('pmd:pmd:jar:4.2.5').each(&:invoke).map(&:to_s).join(File::PATH_SEPARATOR)
+    mkdir_p _(:reports)
+    ant("pmd-report") do |ant|
+      ant.taskdef :name=> 'pmd', :classpath=>pmd_classpath, :classname=>'net.sourceforge.pmd.ant.PMDTask'
+      # rulesets: basic,imports,unusedcode,strings,optimizations,logging-jakarta-commons,migrating,design
+      ant.pmd :rulesetfiles => 'basic,unusedcode,optimizations,design' do
+        ant.formatter :type=>'html', :toFile=> _(:reports, 'pmd.html')
+        projects.each do |pr|
+          pr.compile.sources.each do |src|
+            ant.fileset :dir=> src, :includes=>'**/*.java'
+          end
+        end
+      end
+    end  
+  end
 end
 
 define "apache-ode" do
@@ -542,7 +645,7 @@ define "apache-ode" do
     project.package(:zip, :id=>id).enhance(project("ode").projects.map(&:packages).flatten) do |pkg|
       pkg.path("#{id}-#{version}").tap do |zip|
         zip.include meta_inf + ["RELEASE_NOTES", "README"].map { |f| path_to(f) }
-        zip.path("examples").include project.path_to("src/examples"+postfix), :as=>"."
+        zip.path("examples").include(project.path_to("src/examples"+postfix), :as=>".").exclude "**/target"
 
         # Libraries
         zip.path("lib").include artifacts(COMMONS.logging, COMMONS.codec, COMMONS.httpclient,
@@ -612,6 +715,8 @@ define "apache-ode" do
       `svn status -v`.reject { |l| l[0] == ?? || l[0] == ?D || l.strip.empty? || l[0...3] == "---"}.
         map { |l| l.split.last }.reject { |f| File.directory?(f) }.
         each { |f| zip.include f, :as=>f.gsub("\\", "/") }
+    elsif File.exist? '.git/config'
+      `git ls-files`.split("\n").each { |f| zip.include f, :as=>f.gsub("\\", "/") }
     else
       zip.include Dir.pwd, :as=>"."
     end
@@ -619,4 +724,8 @@ define "apache-ode" do
 
   package(:zip, :id=>"#{id}-docs").include(doc.from(project("ode").projects).
     using(:javadoc, :windowtitle=>"Apache ODE #{project.version}").target, :as=>"#{id}-docs-#{version}") unless ENV["JAVADOC"] =~ /^(no|off|false|skip)$/i
+    
+  # sign packages
+  gpg_sign_before_upload
+
 end
